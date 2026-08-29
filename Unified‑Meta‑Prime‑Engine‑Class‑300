@@ -1,0 +1,113 @@
+// Unified-System-Sovereign-Meta-Prime-Engine-Class-300.ts
+
+export type SovereignPrimeState = {
+  organismId: string;
+  primeSeed: string;                        // deterministic prime seed
+  primeVector: ReadonlyArray<number>;       // structured prime representation
+  revision: number;
+  primeHash: string;
+  lastUpdatedAt: string;
+};
+
+export type SovereignPrimeEvent =
+  | { type: 'PRIME_SEED_UPDATED'; seed: string }
+  | { type: 'PRIME_VECTOR_UPDATED'; vector: ReadonlyArray<number> }
+  | { type: 'PRIME_REVISION_INCREMENTED' };
+
+export interface SovereignPrimePersistence {
+  loadPrimeState(organismId: string): Promise<SovereignPrimeState | null>;
+  savePrimeState(state: SovereignPrimeState): Promise<void>;
+}
+
+export class SovereignMetaPrimeEngineClass300 {
+  constructor(
+    private readonly persistence: SovereignPrimePersistence,
+  ) {}
+
+  async initializePrime(
+    organismId: string,
+    initialSeed: string,
+  ): Promise<SovereignPrimeState> {
+    const existing = await this.persistence.loadPrimeState(organismId);
+    if (existing) return existing;
+
+    const initialVector = [22, 19, 18]; // deterministic prime seed vector
+
+    const initial: SovereignPrimeState = {
+      organismId,
+      primeSeed: initialSeed,
+      primeVector: initialVector,
+      revision: 1,
+      primeHash: this.computePrimeHash(initialSeed, initialVector, 1),
+      lastUpdatedAt: new Date().toISOString(),
+    };
+
+    await this.persistence.savePrimeState(initial);
+    return initial;
+  }
+
+  async applyEvent(
+    state: SovereignPrimeState,
+    event: SovereignPrimeEvent,
+  ): Promise<SovereignPrimeState> {
+    switch (event.type) {
+      case 'PRIME_SEED_UPDATED': {
+        const nextSeed = event.seed;
+        const next: SovereignPrimeState = {
+          ...state,
+          primeSeed: nextSeed,
+          primeHash: this.computePrimeHash(nextSeed, state.primeVector, state.revision),
+          lastUpdatedAt: new Date().toISOString(),
+        };
+        await this.persistence.savePrimeState(next);
+        return next;
+      }
+
+      case 'PRIME_VECTOR_UPDATED': {
+        const nextVector = [...event.vector];
+        const next: SovereignPrimeState = {
+          ...state,
+          primeVector: nextVector,
+          primeHash: this.computePrimeHash(state.primeSeed, nextVector, state.revision),
+          lastUpdatedAt: new Date().toISOString(),
+        };
+        await this.persistence.savePrimeState(next);
+        return next;
+      }
+
+      case 'PRIME_REVISION_INCREMENTED': {
+        const nextRevision = state.revision + 1;
+        const next: SovereignPrimeState = {
+          ...state,
+          revision: nextRevision,
+          primeHash: this.computePrimeHash(
+            state.primeSeed,
+            state.primeVector,
+            nextRevision,
+          ),
+          lastUpdatedAt: new Date().toISOString(),
+        };
+        await this.persistence.savePrimeState(next);
+        return next;
+      }
+
+      default:
+        return state;
+    }
+  }
+
+  private computePrimeHash(
+    seed: string,
+    vector: ReadonlyArray<number>,
+    revision: number,
+  ): string {
+    const input = `${seed}|${vector.join(',')}|${revision}`;
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      const chr = input.charCodeAt(i);
+      hash = (hash << 5) - hash + chr;
+      hash |= 0;
+    }
+    return `PRIME-${hash}`;
+  }
+}
